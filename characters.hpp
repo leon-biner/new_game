@@ -5,13 +5,13 @@ class PlayerCharacter : public LivingEntity {
 public:
     PlayerCharacter(pair<int> pos, int speed, int health, int direction, char core_character);
     void display(WINDOW*) const override;
-    void moveUp();
-    void moveDown();
-    void moveLeft();
-    void moveRight();
+    void moveUp(const LevelGrid&);
+    void moveDown(const LevelGrid&);
+    void moveLeft(const LevelGrid&);
+    void moveRight(const LevelGrid&);
     pair<int> getPos() const;
     virtual void updateHealth(int);
-    void updateWallsTouched(const LevelGrid&) override;
+    void updateWallsTouched(const LevelGrid&) override; //I think this is useless actually we'll see
     void checkWalls(const LevelGrid&, bool, bool, bool, bool);
 protected:
     unsigned int health_;

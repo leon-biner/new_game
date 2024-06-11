@@ -20,12 +20,12 @@ class Enemy;
 
 class LevelGrid {
 public:
-    LevelGrid(pair<int>, std::vector<std::vector<int>>);
+    LevelGrid(pair<int>, const std::vector<std::vector<int>>&);
     friend class PlayerCharacter;
     friend class Enemy;
 private:
     pair<int> level_dimensions_;
-    std::vector<std::vector<int>> level_walls_; //2D array, first index is y, where each value gives the direction of the wall: 0 if no wall, 1 if up, 2 if right, 3 if down, 4 if left
+    const std::vector<std::vector<int>>& level_walls_; //2D array, first index is y, where each value gives the direction of the wall: 0 if no wall, 1 if up, 2 if right, 3 if down, 4 if left
     //start this at -1 and end this at level_dimentions + 1 with true because I am checking player_pos + 2 to see if there's a wall, if ever it doesn't work right
 };
 

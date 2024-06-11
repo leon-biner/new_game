@@ -4,26 +4,34 @@
 PlayerCharacter::PlayerCharacter(pair<int> pos, int speed, int health, int direction, char core_character) : 
                 LivingEntity(pos, direction, speed), health_(health), core_character_(core_character) {}
 
-void PlayerCharacter::moveUp()
+void PlayerCharacter::moveUp(const LevelGrid& level)
 {
+    if (level.level_walls_[pos_.y_ - 1][pos_.x_] || level.level_walls_[pos_.y_ - 2][pos_.x_])
+        return; //maybe add a red colour or smth to show he hit a wall?
     pos_.y_--;
     direction_ = 1;
 }
 
-void PlayerCharacter::moveDown()
+void PlayerCharacter::moveDown(const LevelGrid& level)
 {
+    if (level.level_walls_[pos_.y_ + 1][pos_.x_] || level.level_walls_[pos_.y_ + 2][pos_.x_])
+        return;
     pos_.y_++;
     direction_ = 3;
 }
 
-void PlayerCharacter::moveLeft()
+void PlayerCharacter::moveLeft(const LevelGrid& level)
 {
+    if (level.level_walls_[pos_.y_][pos_.x_ - 1] || level.level_walls_[pos_.y_][pos_.x_ - 2])
+        return;
     pos_.x_--;
     direction_ = 4;
 }
 
-void PlayerCharacter::moveRight()
+void PlayerCharacter::moveRight(const LevelGrid& level)
 {
+    if (level.level_walls_[pos_.y_][pos_.x_ + 1] || level.level_walls_[pos_.y_][pos_.x_ + 2])
+        return;
     pos_.x_++;
     direction_ = 2;
 }

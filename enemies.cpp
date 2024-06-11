@@ -23,43 +23,69 @@ void Enemy::display(WINDOW* win) const
             break;
     }
 }
-
-void Enemy::nonAggroMovement()
+void Enemy::updateWallsTouched(const LevelGrid& level)
 {
+    if (level.level_walls_[pos_.y_ - 1][pos_.x_])
+        walls_touched_[0] = true;
+    if (level.level_walls_[pos_.y_][pos_.x_ + 1])
+        walls_touched_[1] = true;
+    if (level.level_walls_[pos_.y_ + 1][pos_.x_])
+        walls_touched_[2] = true;
+    if (level.level_walls_[pos_.y_][pos_.x_ - 1])
+        walls_touched_[3] = true;
+}
+
+bool Enemy::move()
+{
+    if (walls_touched_[direction_])
+        return false;
     switch (direction_)
     {
         case 0:
             pos_.y_--;
+            break;
         case 1:
             pos_.x_++;
+            break;
         case 2:
             pos_.y_++;
+            break;
         case 3:
             pos_.x_--;
+            break;
+    }
+    return true;
+}
+
+
+void Enemy::nonAggroMovement()
+{
+    if (!move())
+    {
+        direction_ += 2;
+        direction_ = direction_ % 4;
     }
 }
 
 void Enemy::aggroMovement(const PlayerCharacter& player)
 {
     pair<int> distance = player.getPos() - pos_;
-    if (distance.x_ > distance.y_)
+    if (abs(distance.x_) > abs(distance.y_))
     {
-        //approach player on x axis
-        pos_.x_ += distance.x_ / abs(distance.x_);
+        direction_ = (distance.x_ > 0) ? 1 : 3;
+        if (!move())
+        {
+            direction_ = (distance.y_ < 0) ? 0 : 2;
+            move();
+        }
         return;
     }
-    //approach player on y axis
-    pos_.y_ += distance.y_ / abs(distance.y_);
-}
-
-void Enemy::movement(const PlayerCharacter& player)
-{
-    if (aggroed_)
+    direction_ = (distance.y_ < 0) ? 0 : 2;
+    if (!move())
     {
-        aggroMovement(player);
-        return;
+        direction_ = (distance.x_ > 0) ? 1 : 3;
+        move();
     }
-    nonAggroMovement();
 }
 
 void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
