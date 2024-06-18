@@ -2,7 +2,38 @@
 #include "characters.hpp"
 
 //Enemy base class definition
-Enemy::Enemy(pair<int> pos, int speed, int aggro_distance, int direction, bool aggroed) : LivingEntity(pos, direction, speed), aggro_distance_(aggro_distance), aggroed_(aggroed) {}
+Enemy::Enemy(pair<int> pos, int speed, pair<int> aggro_range, int direction, int damage, bool pause, bool aggroed) :
+ LivingEntity(pos, direction, speed), aggro_range_(aggro_range), aggroed_(aggroed), pause_(pause), damage_(damage) {}
+
+void Enemy::displayAttributes()
+{
+    printw("Enemy :");
+    mvprintw(1, X_LEVEL_DIMENSIONS + 2, "position is : (%i, %i)", pos_.x_, pos_.y_);
+    mvprintw(2, X_LEVEL_DIMENSIONS + 2, "direction is : %i", direction_);
+    mvprintw(3, X_LEVEL_DIMENSIONS + 2, "aggroed ? : %i", aggroed_);
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     bool wall_touched = static_cast<bool>(walls_touched_[i]);
+    //     mvprintw(2 + i, 21, "touches wall on direction %i ? : %i", i, wall_touched);
+    // }
+}
+
+void Enemy::showAggro(const LevelGrid& level)
+{
+    for (int i = 0; i < Y_LEVEL_DIMENSIONS; i++)
+    {
+        for (int j = 0; j < X_LEVEL_DIMENSIONS; j++)
+        {
+            PlayerCharacter player(pair<int>(i, j), 1, 1, 1, 1, 'o');
+            detectAggro(player, level);
+            if (aggroed_)
+            {
+                wmove(stdscr, i, j);
+                addch('.');
+            }
+        }
+    }
+}
 
 void Enemy::display(WINDOW* win) const
 {
@@ -27,12 +58,28 @@ void Enemy::updateWallsTouched(const LevelGrid& level)
 {
     if (level.level_walls_[pos_.y_ - 1][pos_.x_])
         walls_touched_[0] = true;
+    else
+        walls_touched_[0] = false;
     if (level.level_walls_[pos_.y_][pos_.x_ + 1])
         walls_touched_[1] = true;
+    else
+        walls_touched_[1] = false;
     if (level.level_walls_[pos_.y_ + 1][pos_.x_])
         walls_touched_[2] = true;
+    else
+        walls_touched_[2] = false;
     if (level.level_walls_[pos_.y_][pos_.x_ - 1])
         walls_touched_[3] = true;
+    else
+        walls_touched_[3] = false;
+}
+
+void Enemy::movement(const PlayerCharacter& player, const LevelGrid& level)
+{
+    if (aggroed_)
+        aggroMovement(player, level);
+    else
+        nonAggroMovement(level);
 }
 
 bool Enemy::move()
@@ -57,9 +104,16 @@ bool Enemy::move()
     return true;
 }
 
-
-void Enemy::nonAggroMovement()
+bool Enemy::detectHit(const PlayerCharacter& player) const
 {
+    if (player.getPos() == pos_)
+        return true;
+    return false;
+}
+
+void Enemy::nonAggroMovement(const LevelGrid& level)
+{
+    updateWallsTouched(level);
     if (!move())
     {
         direction_ += 2;
@@ -67,8 +121,9 @@ void Enemy::nonAggroMovement()
     }
 }
 
-void Enemy::aggroMovement(const PlayerCharacter& player)
+void Enemy::aggroMovement(const PlayerCharacter& player, const LevelGrid& level)
 {
+    updateWallsTouched(level);
     pair<int> distance = player.getPos() - pos_;
     if (abs(distance.x_) > abs(distance.y_))
     {
@@ -92,12 +147,17 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
 {
     pair<int> distance_coord = player.getPos() - pos_;
     float distance_magnitude_squared = distance_coord.x_ * distance_coord.x_ + distance_coord.y_ * distance_coord.y_;
-    if (!(distance_magnitude_squared <= aggro_distance_ * aggro_distance_)) //verify that the player is in range
-    {   
+    if (!(distance_magnitude_squared <= aggro_range_.x_ * aggro_range_.x_)) //verify that the player is in range, remember 2nd elem of aggro_range_ (x_) is bigger radius
+    {                                                                       //and first is small radius (I know it doesn't make sense with x and y notation)
         aggroed_ = false;
         return;
     }
-    pair<int> abs_distance_coord(abs(distance_coord.x_), abs(distance_coord.y_));
+    if (distance_magnitude_squared <= aggro_range_.y_ * aggro_range_.y_)
+    {
+        aggroed_ = true;
+        return;
+    }
+    pair<int> abs_distance_coord(abs(distance_coord.y_), abs(distance_coord.x_));
     switch (direction_) //returns if the player is not in front of the enemy
     {
         case 0:
@@ -143,7 +203,7 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
                 aggroed_ = false;
                 return;
             }
-            if ((abs_distance_coord.x_ > abs_distance_coord.y_ / 2))
+            if (!(abs_distance_coord.x_ > abs_distance_coord.y_ / 2))
             {
                 aggroed_ = false;
                 return;
@@ -151,12 +211,11 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
             break;
     }
     //now check if a wall is in the way
-    int count = 0;
-    int weak_index = 0;
+    int weak_index;
     int adder = 1;
     if (abs_distance_coord.x_ <= abs_distance_coord.y_) 
     {
-        int number_of_y_jumps_per_x_jump = abs_distance_coord.y_ / abs_distance_coord.x_;
+        int number_of_y_jumps_per_x_jump = integerDivisionRounded(abs_distance_coord.y_, abs_distance_coord.x_);
         if (distance_coord.x_ > 0) //checks if we want to go right or left the x axis from the player
             adder = -1;
         weak_index = player.getPos().x_;
@@ -169,7 +228,9 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
                     aggroed_ = false;
                     return;
                 }
-                if (count % number_of_y_jumps_per_x_jump == 0)
+                if (weak_index == pos_.x_ + adder)
+                    continue; 
+                if (i % number_of_y_jumps_per_x_jump == 0)
                     weak_index += adder;
             }
         }
@@ -182,7 +243,9 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
                     aggroed_ = false;
                     return;
                 }
-                if (count % number_of_y_jumps_per_x_jump == 0)
+                if (weak_index == pos_.x_ + adder)
+                    continue; 
+                if (i % number_of_y_jumps_per_x_jump == 0)
                     weak_index += adder;
             }
         }
@@ -192,7 +255,7 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
 
     if (abs_distance_coord.y_ < abs_distance_coord.x_)
     {
-        int number_of_x_jumps_per_y_jump = abs_distance_coord.x_ / abs_distance_coord.y_;
+        int number_of_x_jumps_per_y_jump = integerDivisionRounded(abs_distance_coord.x_, abs_distance_coord.y_);
         if (distance_coord.y_ > 0) //checks if we want to go up or down the y axis from the player
                 adder = -1;
         weak_index = player.getPos().y_;
@@ -205,7 +268,9 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
                     aggroed_ = false;
                     return;
                 }
-                if (count % number_of_x_jumps_per_y_jump == 0)
+                if (weak_index == pos_.y_ + adder)
+                    continue; 
+                if (i % number_of_x_jumps_per_y_jump == 0)
                     weak_index += adder;
             }
             aggroed_ = true;
@@ -221,14 +286,28 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
                     aggroed_ = false;
                     return;
                 }
-                if (count % number_of_x_jumps_per_y_jump == 0)
+                if (weak_index == pos_.y_ + adder)
+                    continue; 
+                if (i % number_of_x_jumps_per_y_jump == 0)
                     weak_index += adder;
             }
             aggroed_ = true;
             return;
         }
     }
-    aggroed_ = false;
-    endwin();
-    std::cout << "something went wrong with the aggro detection\n";
+}
+
+int Enemy::getDamage() const
+{
+    return damage_;
+}
+
+void resetEnemiesPos(std::vector<Enemy>& enemies, const LevelGrid& level)
+{
+    int i = 0;
+    for (auto& enemy : enemies)
+    {
+        enemy.pos_ = level.initial_enemy_pos_[i];
+        i++;
+    }
 }

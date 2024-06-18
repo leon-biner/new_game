@@ -1,39 +1,108 @@
 #include "characters.hpp"
+#include "enemies.hpp"
 
 // PlayerCharacter base class definition
-PlayerCharacter::PlayerCharacter(pair<int> pos, int speed, int health, int direction, char core_character) : 
-                LivingEntity(pos, direction, speed), health_(health), core_character_(core_character) {}
+PlayerCharacter::PlayerCharacter(pair<int> pos, int speed, int health, int direction, int lives, char core_character) : 
+                LivingEntity(pos, direction, speed), health_(health), lives_(lives), core_character_(core_character) {}
+
+void PlayerCharacter::displayAttributes()
+{
+    printw("Player :");
+    mvprintw(5, X_LEVEL_DIMENSIONS + 2, "position is : (%i, %i)", pos_.x_, pos_.y_);
+    mvprintw(6, X_LEVEL_DIMENSIONS + 2, "direction is : %i", direction_);
+    mvprintw(7, X_LEVEL_DIMENSIONS + 2, "lives : %i", lives_);
+    mvprintw(8, X_LEVEL_DIMENSIONS + 2, "health : %i", health_);
+}
+
+void PlayerCharacter::move(const LevelGrid& level, int input)
+{
+    switch (input)
+        {
+            case (int)'w':
+                moveUp(level);
+                break;
+            case (int)'d':
+                moveRight(level);
+                break;
+            case (int)'s':
+                moveDown(level);
+                break;
+            case (int)'a':
+                moveLeft(level);
+                break;
+            case (int)'x':
+                curs_set(1);
+                exit(1);
+            default:
+                break;
+        }
+}
 
 void PlayerCharacter::moveUp(const LevelGrid& level)
 {
+    direction_ = 0;
     if (level.level_walls_[pos_.y_ - 1][pos_.x_] || level.level_walls_[pos_.y_ - 2][pos_.x_])
         return; //maybe add a red colour or smth to show he hit a wall?
+    // if (level.level_walls_[pos_.y_ - 2][pos_.x_])
+    //     direction_ = 1;
     pos_.y_--;
-    direction_ = 1;
 }
 
 void PlayerCharacter::moveDown(const LevelGrid& level)
 {
+    direction_ = 2;
     if (level.level_walls_[pos_.y_ + 1][pos_.x_] || level.level_walls_[pos_.y_ + 2][pos_.x_])
         return;
+    // if (level.level_walls_[pos_.y_ + 2][pos_.x_])
+    //     direction_ = 3;
     pos_.y_++;
-    direction_ = 3;
 }
 
 void PlayerCharacter::moveLeft(const LevelGrid& level)
 {
+    direction_ = 3;
     if (level.level_walls_[pos_.y_][pos_.x_ - 1] || level.level_walls_[pos_.y_][pos_.x_ - 2])
         return;
+    // if (level.level_walls_[pos_.y_][pos_.x_ - 2])
+    //     direction_ = 0;
     pos_.x_--;
-    direction_ = 4;
 }
 
 void PlayerCharacter::moveRight(const LevelGrid& level)
 {
+    direction_ = 1;
     if (level.level_walls_[pos_.y_][pos_.x_ + 1] || level.level_walls_[pos_.y_][pos_.x_ + 2])
         return;
+    // if (level.level_walls_[pos_.y_][pos_.x_ + 2])
+    //     direction_ = 2;
     pos_.x_++;
-    direction_ = 2;
+}
+
+void PlayerCharacter::detectHit(std::vector<Enemy>& enemies, const LevelGrid& level)
+{
+    for (auto& enemy : enemies)
+    {
+        if (enemy.detectHit(*this))
+        {
+            if (updateHealth(enemy.getDamage()))
+            {
+                lives_--;
+                if (lives_ == 0)
+                {
+                    //GAME_OVER = true;
+                    return;
+                }
+                resetPos(level);
+                resetEnemiesPos(enemies, level);
+            }
+            return;
+        }
+    }
+}
+
+void PlayerCharacter::resetPos(const LevelGrid& level)
+{
+    pos_ = level.initial_player_pos_;
 }
 
 pair<int> PlayerCharacter::getPos() const
@@ -41,9 +110,10 @@ pair<int> PlayerCharacter::getPos() const
     return pos_;
 }
 
-void PlayerCharacter::updateHealth(int health_gain)
+bool PlayerCharacter::updateHealth(int health_gain)
 {
     health_ += health_gain;
+    return (health_ <= 0) ? true : false;
 }
 
 void PlayerCharacter::display(WINDOW* win) const

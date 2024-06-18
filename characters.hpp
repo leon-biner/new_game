@@ -3,18 +3,24 @@
 //base class for all player characters
 class PlayerCharacter : public LivingEntity {
 public:
-    PlayerCharacter(pair<int> pos, int speed, int health, int direction, char core_character);
+    PlayerCharacter(pair<int> pos, int speed, int health, int direction, int lives, char core_character);
+    void displayAttributes();
     void display(WINDOW*) const override;
-    void moveUp(const LevelGrid&);
-    void moveDown(const LevelGrid&);
-    void moveLeft(const LevelGrid&);
-    void moveRight(const LevelGrid&);
+    void move(const LevelGrid&, int input); //checks the input and uses the 4 move functions below accordingly or pauses the game
+    void moveUp(const LevelGrid&); //updates the direction and updates the position if there is no wall in the way
+    void moveDown(const LevelGrid&); //''
+    void moveLeft(const LevelGrid&); //''
+    void moveRight(const LevelGrid&); //''
+    void detectHit(std::vector<Enemy>&, const LevelGrid& level); //looks through every enemy to see if one of them has hit the player,
+    // updates health/lives/game over status accordingly and resets position
+    void resetPos(const LevelGrid&);
     pair<int> getPos() const;
-    virtual void updateHealth(int);
+    virtual bool updateHealth(int); //returns true if the player's dead;
     void updateWallsTouched(const LevelGrid&) override; //I think this is useless actually we'll see
     void checkWalls(const LevelGrid&, bool, bool, bool, bool);
 protected:
-    unsigned int health_;
+    int lives_;
+    int health_;
     char core_character_;
 };
 
@@ -30,7 +36,7 @@ public:
 class MuscleMan : public PlayerCharacter {
 public:
     MuscleMan(pair<int> pos, int speed, int health, int direction, char core_character = '8');
-    void updateHealth(int) override;
+    bool updateHealth(int) override;
 };
 
 //character 3
@@ -38,7 +44,7 @@ public:
 class ShieldBro : public PlayerCharacter {
 public:
     ShieldBro(pair<int> pos, int speed, int health, int direction, int shield_count, char core_character = 'H', bool shield = false);
-    void updateHealth(int) override;
+    bool updateHealth(int) override;
     void setShield(bool); //checks internally if the player already used all his/her shields
     static int MAX_SHIELD_COUNT;
 private:
@@ -51,7 +57,7 @@ private:
 class SneakyLady : public PlayerCharacter {
 public:
     SneakyLady(pair<int> pos, int speed, int health, int sneak_count, char core_character = 'S', bool sneak_status = false);
-    void updateHealth(int) override;
+    bool updateHealth(int) override;
     void setSneakStatus(bool); //checks internally if the player has used all his sneak powerups
     static int MAX_STEALTH_COUNT;
 private:
