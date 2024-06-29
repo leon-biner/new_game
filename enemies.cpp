@@ -1,9 +1,10 @@
 #include "enemies.hpp"
-#include "characters.hpp"
 
 //Enemy base class definition
-Enemy::Enemy(pair<int> pos, int speed, pair<int> aggro_range, int direction, int damage, bool pause, bool aggroed) :
- LivingEntity(pos, direction, speed), aggro_range_(aggro_range), aggroed_(aggroed), pause_(pause), damage_(damage) {}
+Enemy::Enemy(mypair<int> pos, int speed, mypair<int> aggro_range, int direction, int damage, bool aggroed) :
+    LivingEntity(pos, direction, speed), aggro_range_(aggro_range), aggroed_(aggroed), damage_(damage),
+    time_between_moves_(std::chrono::milliseconds(250)), smaller_radius_(aggro_range.y_)
+    , time_since_last_move_(std::chrono::high_resolution_clock::now()) {}
 
 void Enemy::displayAttributes()
 {
@@ -18,22 +19,22 @@ void Enemy::displayAttributes()
     // }
 }
 
-void Enemy::showAggro(const LevelGrid& level)
-{
-    for (int i = 0; i < Y_LEVEL_DIMENSIONS; i++)
-    {
-        for (int j = 0; j < X_LEVEL_DIMENSIONS; j++)
-        {
-            PlayerCharacter player(pair<int>(i, j), 1, 1, 1, 1, 'o');
-            detectAggro(player, level);
-            if (aggroed_)
-            {
-                wmove(stdscr, i, j);
-                addch('.');
-            }
-        }
-    }
-}
+// void Enemy::showAggro(const LevelGrid& level)
+// {
+//     for (int i = 0; i < Y_LEVEL_DIMENSIONS; i++)
+//     {
+//         for (int j = 0; j < X_LEVEL_DIMENSIONS; j++)
+//         {
+//             PlayerCharacter player(mypair<int>(i, j), 1, 1, 1, 1, 'o');
+//             detectAggro(player, level);
+//             if (aggroed_)
+//             {
+//                 wmove(stdscr, i, j);
+//                 addch('.');
+//             }
+//         }
+//     }
+// }
 
 void Enemy::display(WINDOW* win) const
 {
@@ -54,6 +55,17 @@ void Enemy::display(WINDOW* win) const
             break;
     }
 }
+
+bool Enemy::readyToMove(std::chrono::time_point<std::chrono::high_resolution_clock> current_time)
+{
+    if (speed_ * std::chrono::duration_cast<std::chrono::milliseconds>(current_time - time_since_last_move_) >= time_between_moves_)
+    {
+        time_since_last_move_ = std::chrono::high_resolution_clock::now();
+        return true;
+    }
+    return false;
+}
+
 void Enemy::updateWallsTouched(const LevelGrid& level)
 {
     if (level.level_walls_[pos_.y_ - 1][pos_.x_])
@@ -76,10 +88,15 @@ void Enemy::updateWallsTouched(const LevelGrid& level)
 
 void Enemy::movement(const PlayerCharacter& player, const LevelGrid& level)
 {
+    detectAggro(player, level);
     if (aggroed_)
+    {
+        aggro_range_.y_ = aggro_range_.x_;
         aggroMovement(player, level);
-    else
-        nonAggroMovement(level);
+        return;
+    }
+    aggro_range_.y_ = smaller_radius_;
+    nonAggroMovement(level);
 }
 
 bool Enemy::move()
@@ -104,10 +121,29 @@ bool Enemy::move()
     return true;
 }
 
-bool Enemy::detectHit(const PlayerCharacter& player) const
+bool Enemy::detectHit(const PlayerCharacter& player)
 {
     if (player.getPos() == pos_)
+    {
+        switch (direction_) //just to jump him back right away so he doesn't hit the player every iteration untill he moves again
+        {
+            case 0:
+                pos_.y_ += 2;
+                break;
+            case 1:
+                pos_.x_ -= 2;
+                break;
+            case 2:
+                pos_.y_ -= 2;
+                break;
+            case 3:
+                pos_.x_ += 2;
+                break;
+            default:
+                break;
+        }
         return true;
+    }
     return false;
 }
 
@@ -124,7 +160,7 @@ void Enemy::nonAggroMovement(const LevelGrid& level)
 void Enemy::aggroMovement(const PlayerCharacter& player, const LevelGrid& level)
 {
     updateWallsTouched(level);
-    pair<int> distance = player.getPos() - pos_;
+    mypair<int> distance = player.getPos() - pos_;
     if (abs(distance.x_) > abs(distance.y_))
     {
         direction_ = (distance.x_ > 0) ? 1 : 3;
@@ -145,7 +181,7 @@ void Enemy::aggroMovement(const PlayerCharacter& player, const LevelGrid& level)
 
 void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
 {
-    pair<int> distance_coord = player.getPos() - pos_;
+    mypair<int> distance_coord = player.getPos() - pos_;
     float distance_magnitude_squared = distance_coord.x_ * distance_coord.x_ + distance_coord.y_ * distance_coord.y_;
     if (!(distance_magnitude_squared <= aggro_range_.x_ * aggro_range_.x_)) //verify that the player is in range, remember 2nd elem of aggro_range_ (x_) is bigger radius
     {                                                                       //and first is small radius (I know it doesn't make sense with x and y notation)
@@ -157,7 +193,7 @@ void Enemy::detectAggro(const PlayerCharacter& player, const LevelGrid& level)
         aggroed_ = true;
         return;
     }
-    pair<int> abs_distance_coord(abs(distance_coord.y_), abs(distance_coord.x_));
+    mypair<int> abs_distance_coord(abs(distance_coord.y_), abs(distance_coord.x_));
     switch (direction_) //returns if the player is not in front of the enemy
     {
         case 0:
@@ -302,12 +338,13 @@ int Enemy::getDamage() const
     return damage_;
 }
 
-void resetEnemiesPos(std::vector<Enemy>& enemies, const LevelGrid& level)
+//mypair<int> Enemy::getPos() const
+//{
+//    return pos_;
+//}
+
+void Enemy::resetEnemy(std::pair<mypair<int>, int> enemy_pos_direction_)
 {
-    int i = 0;
-    for (auto& enemy : enemies)
-    {
-        enemy.pos_ = level.initial_enemy_pos_[i];
-        i++;
-    }
+    pos_ = enemy_pos_direction_.first;
+    direction_ = enemy_pos_direction_.second;
 }

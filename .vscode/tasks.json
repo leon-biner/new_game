@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "shell",
+            "label": "build all cpp files in new_game",
+            "command": "/usr/bin/clang++",
+            "args": [
+                "-lncurses",
+                "-fcolor-diagnostics",
+                "-fansi-escape-codes",
+                "-g",
+                "-std=c++17",
+                "${workspaceFolder}/*.cpp",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}"
+            ],
+            "group": "build",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "detail": "Build all .cpp files in new_game"
+        },
+    ]
+}
